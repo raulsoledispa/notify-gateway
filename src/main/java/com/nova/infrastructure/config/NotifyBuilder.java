@@ -14,7 +14,7 @@ import com.nova.infrastructure.providers.FirebasePushProvider;
 import com.nova.infrastructure.providers.SendGridEmailProvider;
 import com.nova.infrastructure.providers.SlackProvider;
 import com.nova.infrastructure.providers.TwilioSmsProvider;
-import com.nova.infrastructure.resilience.Resilience4jRetryDecorator;
+import com.nova.infrastructure.resilience.ResilienceRetryDecorator;
 import com.nova.infrastructure.templates.InMemoryTemplateEngine;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
@@ -90,7 +90,7 @@ public class NotifyBuilder {
                 : new NotificationEventPublisher(eventListeners);
 
         List<NotificationProvider> decoratedProviders = providers.stream()
-                .map(p -> (NotificationProvider) new Resilience4jRetryDecorator(p, retryConfig, eventPublisher))
+                .map(p -> (NotificationProvider) new ResilienceRetryDecorator(p, retryConfig, eventPublisher))
                 .toList();
 
         NotificationStrategy emailStrategy = new EmailStrategy(decoratedProviders);
