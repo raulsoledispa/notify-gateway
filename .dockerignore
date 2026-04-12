@@ -1,0 +1,23 @@
+# Git
+.git
+.gitignore
+
+# Developer environment 
+.idea/
+.vscode/
+*.iml
+*.log
+
+# Maven build artifacts
+target/
+!target/dependency
+
+# Documentation & spec (not needed for runtime)
+README.md
+AGENTS.md
+spec.md
+plans/
+
+# OS specific files
+.DS_Store
+Thumbs.db
