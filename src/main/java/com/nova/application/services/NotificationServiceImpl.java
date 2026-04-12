@@ -58,8 +58,9 @@ public class NotificationServiceImpl implements NotificationService {
 
             publishEvent(NotificationStatus.PENDING, request, "Dispatching notification");
 
-            log.info("Dispatching notification to: {}", request.channelType());
-            Result<Void> result = ((Result.Success<NotificationStrategy>) strategyResult).value().execute(request);
+            NotificationRequest processedRequest = templateProcessor.process(request);
+            log.info("Dispatching notification to: {}", processedRequest.channelType());
+            Result<Void> result = ((Result.Success<NotificationStrategy>) strategyResult).value().execute(processedRequest);
 
             if (result instanceof Result.Success) {
                 publishEvent(NotificationStatus.SUCCESS, request, "Notification sent successfully");

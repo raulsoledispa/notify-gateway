@@ -42,11 +42,6 @@ WORKDIR /app
 COPY --from=build --chown=novauser:nova /app/target/lib /app/lib
 COPY --from=build --chown=novauser:nova /app/target/notify-gateway-1.0-SNAPSHOT.jar /app/notify-gateway.jar
 
-# Configuration Options can be passed securely at container runtime
-ENV SENDGRID_API_KEY=""
-ENV TWILIO_SID=""
-ENV FIREBASE_SERVICE_KEY=""
-
-# Run the application defining the classpath explicitly 
+# Run the application defining the classpath explicitly
 # (Since the default pom.xml does not use an Uber-Jar/Shade plugin)
-ENTRYPOINT ["java", "-cp", "notify-gateway.jar:lib/*", "com.nova.MainApp"]
+ENTRYPOINT ["java", "-cp", "notify-gateway.jar:lib/*", "com.nova.Main"]
