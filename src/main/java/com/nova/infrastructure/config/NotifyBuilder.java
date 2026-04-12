@@ -7,6 +7,9 @@ import com.nova.application.strategies.NotificationStrategy;
 import com.nova.application.strategies.PushStrategy;
 import com.nova.application.strategies.SmsStrategy;
 import com.nova.domain.ports.NotificationProvider;
+import com.nova.infrastructure.config.FirebaseConfig;
+import com.nova.infrastructure.config.SendGridConfig;
+import com.nova.infrastructure.config.TwilioConfig;
 import com.nova.infrastructure.providers.FirebasePushProvider;
 import com.nova.infrastructure.providers.SendGridEmailProvider;
 import com.nova.infrastructure.providers.TwilioSmsProvider;
@@ -54,16 +57,16 @@ public class NotifyBuilder {
         return this;
     }
 
-    public NotifyBuilder withSendGrid(String apiKey) {
-        return this.addProvider(new SendGridEmailProvider(apiKey));
+    public NotifyBuilder withSendGrid(SendGridConfig config) {
+        return this.addProvider(new SendGridEmailProvider(config));
     }
 
-    public NotifyBuilder withTwilio(String accountSid, String authToken) {
-        return this.addProvider(new TwilioSmsProvider(accountSid, authToken));
+    public NotifyBuilder withTwilio(TwilioConfig config) {
+        return this.addProvider(new TwilioSmsProvider(config));
     }
-    
-    public NotifyBuilder withFirebase(String serviceAccountKey) {
-        return this.addProvider(new FirebasePushProvider(serviceAccountKey));
+
+    public NotifyBuilder withFirebase(FirebaseConfig config) {
+        return this.addProvider(new FirebasePushProvider(config));
     }
 
     public NotifyBuilder withTemplateEngine(com.nova.domain.ports.TemplateEngine engine) {

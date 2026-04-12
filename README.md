@@ -29,16 +29,21 @@ Here is a full, production-ready configuration that activates all notification c
 
 ```java
 import com.nova.application.services.NotificationService;
+import com.nova.infrastructure.config.FirebaseConfig;
 import com.nova.infrastructure.config.NotifyBuilder;
+import com.nova.infrastructure.config.SendGridConfig;
+import com.nova.infrastructure.config.TwilioConfig;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import java.time.Duration;
 
 // 1. Securely load your credentials from environment variables
-String sendGridKey = System.getenv("SENDGRID_API_KEY");
-String twilioSid = System.getenv("TWILIO_ACCOUNT_SID");
-String twilioAuth = System.getenv("TWILIO_AUTH_TOKEN");
-String firebaseKey = System.getenv("FIREBASE_SERVICE_ACCOUNT_KEY");
+String sendGridKey     = System.getenv("SENDGRID_API_KEY");
+String twilioSid       = System.getenv("TWILIO_ACCOUNT_SID");
+String twilioAuth      = System.getenv("TWILIO_AUTH_TOKEN");
+String twilioFromPhone = System.getenv("TWILIO_FROM_PHONE");
+String firebaseKey     = System.getenv("FIREBASE_SERVICE_ACCOUNT_KEY");
+String firebaseProject = System.getenv("FIREBASE_PROJECT_ID");
 
 // 2. (Optional) Define a custom Resilience4j retry policy
 Retry customRetry = Retry.of("notifyRetry", RetryConfig.custom()
@@ -46,11 +51,11 @@ Retry customRetry = Retry.of("notifyRetry", RetryConfig.custom()
         .waitDuration(Duration.ofSeconds(1))
         .build());
 
-// 3. Instantiate the main service with all desired providers
+// 3. Instantiate the main service using top-level Config value objects
 NotificationService notificationService = NotifyBuilder.builder()
-        .withSendGrid(sendGridKey)
-        .withTwilio(twilioSid, twilioAuth)
-        .withFirebase(firebaseKey)
+        .withSendGrid(new SendGridConfig(sendGridKey, "no-reply@nova.com", "Nova Support"))
+        .withTwilio(new TwilioConfig(twilioSid, twilioAuth, twilioFromPhone))
+        .withFirebase(new FirebaseConfig(firebaseKey, firebaseProject))
         .withRetryPolicy(customRetry)  // overrides default 3 attempts / 500ms
         .build();
 ```
