@@ -2,6 +2,7 @@ package com.nova.infrastructure.providers;
 
 import com.nova.domain.models.ChannelType;
 import com.nova.domain.models.NotificationRequest;
+import com.nova.domain.models.SmsContact;
 import com.nova.domain.ports.NotificationProvider;
 import com.nova.domain.result.Result;
 import com.nova.infrastructure.config.TwilioConfig;
@@ -26,7 +27,10 @@ public class TwilioSmsProvider implements NotificationProvider {
         // Here we would typically use Twilio HTTP client using 'this.config.accountSid()' and 'this.config.authToken()'
         // with fromPhoneNumber 'this.config.fromPhoneNumber()'
         // For now, per instructions, we do not call the external API.
-        log.info("[TWILIO SMS] Payload processed successfully for phone: {}", request.recipient().getPhoneNumber().orElse("UNKNOWN"));
+        if (!(request.contact() instanceof SmsContact(String phoneNumber))) {
+            return new Result.Failure<>("Expected SmsContact, received: " + request.contact().getClass().getSimpleName());
+        }
+        log.info("[TWILIO SMS] Payload processed successfully for phone: {}", phoneNumber);
         return new Result.Success<>(null);
     }
 

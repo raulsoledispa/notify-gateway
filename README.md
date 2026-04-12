@@ -64,63 +64,49 @@ NotificationService notificationService = NotifyBuilder.builder()
 
 ## Usage Examples
 
-Once configured, use the `notificationService` dynamically. The gateway intelligently routes your payload based on the designated `ChannelType`.
+Once configured, use the `notificationService` dynamically. The gateway routes your payload based on the type of `RecipientContact` you provide — no `ChannelType` field needed.
 
 ### 1. Sending an Email
 
 ```java
-import com.nova.domain.models.ChannelType;
+import com.nova.domain.models.EmailContact;
 import com.nova.domain.models.NotificationRequest;
-import com.nova.domain.models.Recipient;
-import com.nova.domain.models.Result;
+import com.nova.domain.result.Result;
 import com.nova.domain.models.Template;
 import java.util.Map;
-
-// Configure the recipient details
-Recipient recipient = new Recipient(
-    "user@example.com", // email
-    null,               // phone
-    null                // push token
-);
 
 // (Optional) Use a Template or plain text body
 Template emailTemplate = new Template("welcome_email_01", Map.of("userName", "Alice"));
 
 NotificationRequest emailRequest = NotificationRequest.builder()
-    .recipient(recipient)
-    .channelType(ChannelType.EMAIL)
+    .contact(new EmailContact("user@example.com"))
     .template(emailTemplate)
     .build();
 
-Result<Void> result = notificationService.send(emailRequest);
+Result<Void> result = notificationService.sendSync(emailRequest);
 
-if (result.isSuccess()) {
+if (result instanceof Result.Success<Void>) {
     System.out.println("Email sent successfully!");
-} else {
-    System.err.println("Email failed: " + result.getError());
+} else if (result instanceof Result.Failure<Void> failure) {
+    System.err.println("Email failed: " + failure.message());
 }
 ```
 
 ### 2. Sending an SMS
 
-Make sure your `Recipient`'s phone number adheres strictly to the **E.164** format.
+The phone number must adhere strictly to the **E.164** format — `SmsContact` validates this at construction time.
 
 ```java
-Recipient recipient = new Recipient(
-    null,               // email
-    "+12345678901",     // phone
-    null                // push token
-);
+import com.nova.domain.models.SmsContact;
 
 NotificationRequest smsRequest = NotificationRequest.builder()
-    .recipient(recipient)
-    .channelType(ChannelType.SMS)
+    .contact(new SmsContact("+12345678901"))
     .plainTextBody("Nova Alert: Your one-time passcode is 987654.")
     .build();
 
-Result<Void> result = notificationService.send(smsRequest);
+Result<Void> result = notificationService.sendSync(smsRequest);
 
-if (result.isSuccess()) {
+if (result instanceof Result.Success<Void>) {
     System.out.println("SMS sent successfully!");
 }
 ```
@@ -128,21 +114,16 @@ if (result.isSuccess()) {
 ### 3. Sending a Push Notification
 
 ```java
-Recipient recipient = new Recipient(
-    null,               // email
-    null,               // phone
-    "fcm_device_token"  // push token
-);
+import com.nova.domain.models.PushContact;
 
 NotificationRequest pushRequest = NotificationRequest.builder()
-    .recipient(recipient)
-    .channelType(ChannelType.PUSH)
+    .contact(new PushContact("fcm_device_token"))
     .plainTextBody("Nova: Your order has been shipped and is on its way!")
     .build();
 
-Result<Void> result = notificationService.send(pushRequest);
+Result<Void> result = notificationService.sendSync(pushRequest);
 
-if (result.isSuccess()) {
+if (result instanceof Result.Success<Void>) {
     System.out.println("Push Notification delivered successfully!");
 }
 ```
@@ -155,11 +136,11 @@ if (result.isSuccess()) {
 
 | Component | Type | Responsibility |
 | :--- | :--- | :--- |
-| **`NotificationService`** | Interface | The primary orchestrator. Invokes internal domain strategies based on `ChannelType`. Exposes the main method: `Result<Void> send(NotificationRequest request)`. |
+| **`NotificationService`** | Interface | The primary orchestrator. Routes requests by inspecting the `RecipientContact` type. Exposes `sendSync` and `sendAsync`. |
 | **`NotifyBuilder`** | Class | The configuration builder (`infrastructure/config`) that securely encapsulates the assembly of providers, resilience policies, and template engines. Returns an immutable configuration ready for production injection. |
-| **`NotificationRequest`** | Record | The overarching Command DTO. Requires a `Recipient`, `ChannelType`, and either a `plainTextBody` or a `Template`. |
-| **`ChannelType`** | Enum | Represents routing values: `EMAIL`, `SMS`, or `PUSH`. |
-| **`Recipient`** | Record | Domain model capturing destination endpoints (`email`, `phoneNumber`, `pushToken`). Performs native internal regex validation upon instantiation to safeguard integrity. |
+| **`NotificationRequest`** | Record | The command DTO. Requires a `RecipientContact` and either a `plainTextBody` or a `Template`. The `channelType()` method is derived from the contact — no redundant field. |
+| **`RecipientContact`** | Sealed Interface | Java 21 sealed type permitting `EmailContact`, `SmsContact`, and `PushContact`. The contact type IS the channel. Each record owns its own format validation. Adding a new channel type triggers compile-time exhaustiveness errors in all unhandled `switch` expressions. |
+| **`ChannelType`** | Enum | Routing discriminator: `EMAIL`, `SMS`, or `PUSH`. Derived automatically from the contact — callers never set it directly. |
 
 ---
 

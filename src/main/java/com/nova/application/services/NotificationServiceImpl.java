@@ -30,8 +30,8 @@ public class NotificationServiceImpl implements NotificationService {
     public Result<Void> sendSync(NotificationRequest request) {
         long startTime = System.currentTimeMillis();
         try {
-            if (request == null || request.channelType() == null) {
-                return new Result.Failure<>("Invalid request or channel missing");
+            if (request == null || request.contact() == null) {
+                return new Result.Failure<>("Invalid request or contact missing");
             }
             
             NotificationStrategy strategy = strategyMap.get(request.channelType());
@@ -43,8 +43,7 @@ public class NotificationServiceImpl implements NotificationService {
             if (request.getTemplate().isPresent() && templateEngine != null) {
                 String resolvedBody = templateEngine.resolve(request.template());
                 processedRequest = NotificationRequest.builder()
-                        .recipient(request.recipient())
-                        .channelType(request.channelType())
+                        .contact(request.contact())
                         .plainTextBody(resolvedBody)
                         .template(request.template())
                         .build();

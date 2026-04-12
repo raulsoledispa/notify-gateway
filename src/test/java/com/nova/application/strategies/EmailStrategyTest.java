@@ -1,8 +1,8 @@
 package com.nova.application.strategies;
 
 import com.nova.domain.models.ChannelType;
+import com.nova.domain.models.EmailContact;
 import com.nova.domain.models.NotificationRequest;
-import com.nova.domain.models.Recipient;
 import com.nova.domain.ports.NotificationProvider;
 import com.nova.domain.result.Result;
 import org.junit.jupiter.api.Test;
@@ -24,8 +24,7 @@ class EmailStrategyTest {
         EmailStrategy strategy = new EmailStrategy(List.of(mockProvider));
 
         NotificationRequest request = NotificationRequest.builder()
-                .channelType(ChannelType.EMAIL)
-                .recipient(new Recipient("test@test.com", null, null))
+                .contact(new EmailContact("test@test.com"))
                 .build();
 
         Result<Void> result = strategy.execute(request);
@@ -38,8 +37,7 @@ class EmailStrategyTest {
         EmailStrategy strategy = new EmailStrategy(Collections.emptyList());
 
         NotificationRequest request = NotificationRequest.builder()
-                .channelType(ChannelType.EMAIL)
-                .recipient(new Recipient("test@test.com", null, null))
+                .contact(new EmailContact("test@test.com"))
                 .build();
 
         Result<Void> result = strategy.execute(request);

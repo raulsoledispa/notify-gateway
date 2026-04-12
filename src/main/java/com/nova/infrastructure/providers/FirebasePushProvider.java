@@ -2,6 +2,8 @@ package com.nova.infrastructure.providers;
 
 import com.nova.domain.models.ChannelType;
 import com.nova.domain.models.NotificationRequest;
+import com.nova.domain.models.PushContact;
+import com.nova.domain.models.RecipientContact;
 import com.nova.domain.ports.NotificationProvider;
 import com.nova.domain.result.Result;
 import com.nova.infrastructure.config.FirebaseConfig;
@@ -26,7 +28,10 @@ public class FirebasePushProvider implements NotificationProvider {
         // Here we would typically use Firebase Admin SDK using 'this.config.serviceAccountKey()'
         // and targeting project 'this.config.projectId()'
         // For now, per instructions, we do not call the external API.
-        log.info("[FIREBASE PUSH] Payload processed successfully for token: {}", request.recipient().getPushToken().orElse("UNKNOWN"));
+        if (!(request.contact() instanceof PushContact(String pushToken))) {
+            return new Result.Failure<>("Expected PushContact, received: " + request.contact().getClass().getSimpleName());
+        }
+        log.info("[FIREBASE PUSH] Payload processed successfully for token: {}", pushToken);
         return new Result.Success<>(null);
     }
 

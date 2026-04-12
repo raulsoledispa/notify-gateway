@@ -5,11 +5,14 @@ import java.util.Optional;
 
 @Builder
 public record NotificationRequest(
-        Recipient recipient,
-        ChannelType channelType,
+        RecipientContact contact,
         String plainTextBody,
         Template template
 ) {
+    public ChannelType channelType() {
+        return contact.channelType();
+    }
+
     public Optional<String> getPlainTextBody() {
         return Optional.ofNullable(plainTextBody);
     }

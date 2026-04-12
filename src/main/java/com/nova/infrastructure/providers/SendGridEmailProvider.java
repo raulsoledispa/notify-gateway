@@ -1,6 +1,7 @@
 package com.nova.infrastructure.providers;
 
 import com.nova.domain.models.ChannelType;
+import com.nova.domain.models.EmailContact;
 import com.nova.domain.models.NotificationRequest;
 import com.nova.domain.ports.NotificationProvider;
 import com.nova.domain.result.Result;
@@ -27,7 +28,10 @@ public class SendGridEmailProvider implements NotificationProvider {
         // with sender 'this.config.fromEmail()' / 'this.config.fromName()'
         log.info("[SENDGRID EMAIL] Sending Content: [{}]", request.getPlainTextBody().orElse("No Body Provided"));
         // For now, per instructions, we do not call the external API.
-        log.info("[SENDGRID EMAIL] Payload processed successfully for recipient: {}", request.recipient().getEmail().orElse("UNKNOWN"));
+        if (!(request.contact() instanceof EmailContact(String email))) {
+            return new Result.Failure<>("Expected EmailContact, received: " + request.contact().getClass().getSimpleName());
+        }
+        log.info("[SENDGRID EMAIL] Payload processed successfully for recipient: {}", email);
         return new Result.Success<>(null);
     }
 
