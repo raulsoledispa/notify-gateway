@@ -33,6 +33,15 @@ public class Resilience4jRetryDecorator implements NotificationProvider {
     public Result<Void> send(NotificationRequest request) {
         AtomicInteger attempt = new AtomicInteger(0);
 
+        if (eventPublisher != null) {
+            eventPublisher.publish(NotificationEvent.builder()
+                    .status(NotificationStatus.PENDING)
+                    .request(request)
+                    .message("Notification pending")
+                    .timestamp(Instant.now())
+                    .build());
+        }
+
         Supplier<Result<Void>> supplier = () -> {
             int currentAttempt = attempt.incrementAndGet();
             if (currentAttempt > 1 && eventPublisher != null) {
@@ -52,10 +61,35 @@ public class Resilience4jRetryDecorator implements NotificationProvider {
         };
 
         try {
-            return Retry.decorateSupplier(retry, supplier).get();
+            Result<Void> result = Retry.decorateSupplier(retry, supplier).get();
+            if (eventPublisher != null) {
+                eventPublisher.publish(NotificationEvent.builder()
+                        .status(NotificationStatus.SUCCESS)
+                        .request(request)
+                        .message("Notification sent successfully")
+                        .timestamp(Instant.now())
+                        .build());
+            }
+            return result;
         } catch (RetryableException e) {
+            if (eventPublisher != null) {
+                eventPublisher.publish(NotificationEvent.builder()
+                        .status(NotificationStatus.FAILURE)
+                        .request(request)
+                        .message("Failed after retries: " + e.getMessage())
+                        .timestamp(Instant.now())
+                        .build());
+            }
             return new Result.Failure<>("Failed after retries: " + e.getMessage(), e);
         } catch (Exception e) {
+            if (eventPublisher != null) {
+                eventPublisher.publish(NotificationEvent.builder()
+                        .status(NotificationStatus.FAILURE)
+                        .request(request)
+                        .message("Unexpected failure during send: " + e.getMessage())
+                        .timestamp(Instant.now())
+                        .build());
+            }
             return new Result.Failure<>("Unexpected failure during send: " + e.getMessage(), e);
         }
     }
