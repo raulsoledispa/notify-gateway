@@ -1,5 +1,5 @@
 package com.nova.domain.models;
 
-public sealed interface RecipientContact permits EmailContact, SmsContact, PushContact {
+public sealed interface RecipientContact permits EmailContact, SmsContact, PushContact, SlackContact {
     ChannelType channelType();
 }

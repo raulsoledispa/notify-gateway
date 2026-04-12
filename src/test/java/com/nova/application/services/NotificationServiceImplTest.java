@@ -1,12 +1,18 @@
 package com.nova.application.services;
 
 import com.nova.application.strategies.NotificationStrategy;
+import com.nova.domain.models.BulkNotificationRequest;
+import com.nova.domain.models.BulkNotificationResult;
 import com.nova.domain.models.ChannelType;
 import com.nova.domain.models.EmailContact;
+import com.nova.domain.models.NotificationEvent;
 import com.nova.domain.models.NotificationRequest;
+import com.nova.domain.models.NotificationStatus;
 import com.nova.domain.models.PushContact;
 import com.nova.domain.models.RecipientContact;
+import com.nova.domain.models.SlackContact;
 import com.nova.domain.models.SmsContact;
+import com.nova.domain.ports.NotificationEventListener;
 import com.nova.domain.result.Result;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +30,8 @@ class NotificationServiceImplTest {
     private NotificationStrategy mockEmailStrategy;
     private NotificationStrategy mockSmsStrategy;
     private NotificationStrategy mockPushStrategy;
+    private NotificationStrategy mockSlackStrategy;
+    private NotificationEventListener mockEventListener;
 
     @BeforeEach
     void setUp() {
@@ -36,10 +44,20 @@ class NotificationServiceImplTest {
         mockPushStrategy = mock(NotificationStrategy.class);
         when(mockPushStrategy.getChannelType()).thenReturn(ChannelType.PUSH);
 
+        mockSlackStrategy = mock(NotificationStrategy.class);
+        when(mockSlackStrategy.getChannelType()).thenReturn(ChannelType.SLACK);
+
         com.nova.domain.ports.TemplateEngine mockEngine = mock(com.nova.domain.ports.TemplateEngine.class);
         when(mockEngine.resolve(any())).thenReturn("Resolved Mock Body");
 
-        service = new NotificationServiceImpl(List.of(mockEmailStrategy, mockSmsStrategy, mockPushStrategy), mockEngine);
+        mockEventListener = mock(NotificationEventListener.class);
+        NotificationEventPublisher eventPublisher = new NotificationEventPublisher(List.of(mockEventListener));
+
+        service = new NotificationServiceImpl(
+                List.of(mockEmailStrategy, mockSmsStrategy, mockPushStrategy, mockSlackStrategy),
+                mockEngine,
+                eventPublisher
+        );
     }
 
     // --- EMAIL ---
@@ -118,6 +136,18 @@ class NotificationServiceImplTest {
         verify(mockPushStrategy, times(1)).execute(any(NotificationRequest.class));
     }
 
+    // --- SLACK ---
+    @Test
+    void testSendSyncSlack_Success() {
+        NotificationRequest request = createRequest(new SlackContact("https://hooks.slack.com/services/T00/B00/xxxx"));
+        when(mockSlackStrategy.execute(any(NotificationRequest.class))).thenReturn(new Result.Success<>(null));
+
+        Result<Void> result = service.sendSync(request);
+
+        assertInstanceOf(Result.Success.class, result);
+        verify(mockSlackStrategy, times(1)).execute(any(NotificationRequest.class));
+    }
+
     // --- TEMPLATE ---
     @Test
     void testSendSyncEmail_WithTemplate() {
@@ -133,6 +163,105 @@ class NotificationServiceImplTest {
 
         assertInstanceOf(Result.Success.class, result);
         verify(mockEmailStrategy, times(1)).execute(any(NotificationRequest.class));
+    }
+
+    // --- BULK ---
+    @Test
+    void testSendBulk_AllSuccess() {
+        when(mockEmailStrategy.execute(any(NotificationRequest.class))).thenReturn(new Result.Success<>(null));
+
+        BulkNotificationRequest bulkRequest = BulkNotificationRequest.builder()
+                .contacts(List.of(
+                        new EmailContact("user1@example.com"),
+                        new EmailContact("user2@example.com"),
+                        new EmailContact("user3@example.com")
+                ))
+                .plainTextBody("Bulk message")
+                .build();
+
+        BulkNotificationResult result = service.sendBulk(bulkRequest);
+
+        assertEquals(3, result.successes().size());
+        assertTrue(result.failures().isEmpty());
+    }
+
+    @Test
+    void testSendBulk_PartialFailure() {
+        when(mockEmailStrategy.execute(any(NotificationRequest.class)))
+                .thenReturn(new Result.Success<>(null))
+                .thenReturn(new Result.Failure<>("Provider unavailable", null))
+                .thenReturn(new Result.Success<>(null));
+
+        BulkNotificationRequest bulkRequest = BulkNotificationRequest.builder()
+                .contacts(List.of(
+                        new EmailContact("user1@example.com"),
+                        new EmailContact("user2@example.com"),
+                        new EmailContact("user3@example.com")
+                ))
+                .plainTextBody("Bulk message")
+                .build();
+
+        BulkNotificationResult result = service.sendBulk(bulkRequest);
+
+        assertEquals(2, result.successes().size());
+        assertEquals(1, result.failures().size());
+    }
+
+    @Test
+    void testSendBulk_AllFailure() {
+        when(mockEmailStrategy.execute(any(NotificationRequest.class)))
+                .thenReturn(new Result.Failure<>("Provider down", null));
+
+        BulkNotificationRequest bulkRequest = BulkNotificationRequest.builder()
+                .contacts(List.of(
+                        new EmailContact("user1@example.com"),
+                        new EmailContact("user2@example.com")
+                ))
+                .plainTextBody("Bulk message")
+                .build();
+
+        BulkNotificationResult result = service.sendBulk(bulkRequest);
+
+        assertTrue(result.successes().isEmpty());
+        assertEquals(2, result.failures().size());
+    }
+
+    @Test
+    void testSendBulk_RejectsMixedChannelTypes() {
+        assertThrows(IllegalArgumentException.class, () ->
+                BulkNotificationRequest.builder()
+                        .contacts(List.of(
+                                new EmailContact("user@example.com"),
+                                new SmsContact("+1234567890")
+                        ))
+                        .plainTextBody("Mixed message")
+                        .build()
+        );
+    }
+
+    // --- EVENTS ---
+    @Test
+    void testSendSync_EmitsPendingAndSuccessEvents() {
+        NotificationRequest request = createRequest(new EmailContact("test@example.com"));
+        when(mockEmailStrategy.execute(any(NotificationRequest.class))).thenReturn(new Result.Success<>(null));
+
+        service.sendSync(request);
+
+        verify(mockEventListener, atLeastOnce()).onEvent(argThat(event ->
+                event.status() == NotificationStatus.PENDING));
+        verify(mockEventListener, atLeastOnce()).onEvent(argThat(event ->
+                event.status() == NotificationStatus.SUCCESS));
+    }
+
+    @Test
+    void testSendSync_EmitsFailureEvent() {
+        NotificationRequest request = createRequest(new EmailContact("test@example.com"));
+        when(mockEmailStrategy.execute(any(NotificationRequest.class))).thenReturn(new Result.Failure<>("Send failed", null));
+
+        service.sendSync(request);
+
+        verify(mockEventListener, atLeastOnce()).onEvent(argThat(event ->
+                event.status() == NotificationStatus.FAILURE));
     }
 
     private NotificationRequest createRequest(RecipientContact contact) {
