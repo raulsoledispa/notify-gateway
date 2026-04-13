@@ -56,19 +56,9 @@ public class NotificationServiceImpl implements NotificationService {
                 return new Result.Failure<>(message, cause);
             }
 
-            publishEvent(NotificationStatus.PENDING, request, "Dispatching notification");
-
             NotificationRequest processedRequest = templateProcessor.process(request);
             log.info("Dispatching notification to: {}", processedRequest.channelType());
-            Result<Void> result = ((Result.Success<NotificationStrategy>) strategyResult).value().execute(processedRequest);
-
-            if (result instanceof Result.Success) {
-                publishEvent(NotificationStatus.SUCCESS, request, "Notification sent successfully");
-            } else if (result instanceof Result.Failure<Void> failure) {
-                publishEvent(NotificationStatus.FAILURE, request, failure.message());
-            }
-
-            return result;
+            return ((Result.Success<NotificationStrategy>) strategyResult).value().execute(processedRequest);
         } catch (Exception e) {
             log.error("Unexpected error during processing", e);
             publishEvent(NotificationStatus.FAILURE, request, "Unexpected error: " + e.getMessage());
